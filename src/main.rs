@@ -1,5 +1,6 @@
 use arrayvec::ArrayVec;
 use num::clamp;
+use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -12,6 +13,8 @@ struct FrameBuffer {
 }
 
 fn render() -> FrameBuffer {
+    println!("rendering....");
+
     let mut framebuffer = FrameBuffer {
         width: 1024,
         height: 768,
@@ -29,31 +32,48 @@ fn render() -> FrameBuffer {
         }
     }
 
+    println!("rendering done");
+
     framebuffer
 }
 
-fn export_to_ppm(framebuffer: &FrameBuffer) -> std::io::Result<()> {
-    let mut file = File::create("out.ppm")?;
+fn export_to_ppm(framebuffer: &FrameBuffer, outfile: &str) -> std::io::Result<()> {
+    println!("exporting to {}...", outfile);
+
+    let mut file = File::create(outfile)?;
     let header = format!("P6\n{} {}\n255\n", framebuffer.width, framebuffer.height);
 
     file.write_all(header.as_bytes())?;
 
-    for pixel in &framebuffer.buffer {
-        file.write_all(
+    let buffer = framebuffer
+        .buffer
+        .iter()
+        .map(|pixel| {
             pixel
                 .iter()
                 .map(|c| ((255.0 * clamp(*c, 0.0, 1.0)) as u8))
                 .collect::<ArrayVec<u8, 3>>()
-                .as_slice(),
-        )?;
-    }
+        })
+        .flatten()
+        .collect::<Vec<u8>>();
+
+    file.write_all(buffer.as_slice())?;
+
+    println!("exporting done");
 
     Ok(())
 }
 
+fn get_out_file() -> String {
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 {
+        args[1].clone()
+    } else {
+        "out.ppm".to_owned()
+    }
+}
+
 fn main() {
-    println!("rendering....");
     let framebuffer = render();
-    export_to_ppm(&framebuffer).expect("failed to export to ppm");
-    println!("done");
+    export_to_ppm(&framebuffer, &get_out_file()).expect("failed to export to ppm");
 }
