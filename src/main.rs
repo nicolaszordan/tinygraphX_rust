@@ -4,6 +4,8 @@ use std::io::prelude::*;
 
 use cgmath::{InnerSpace, Vector3};
 use num::{clamp, Zero};
+
+use tinygraph_x::shapes::material::{Color, Material};
 use tinygraph_x::shapes::shape::Shape;
 use tinygraph_x::shapes::sphere::Sphere;
 
@@ -15,16 +17,46 @@ struct FrameBuffer {
     buffer: Vec<Pixel>,
 }
 
-fn cast_ray(orig: Vector3<f32>, dir: Vector3<f32>, sphere: &Sphere) -> Pixel {
-    let sphere_dist = std::f32::MAX;
-    if sphere.ray_intersect(orig, dir, sphere_dist) {
-        Pixel::new(0.4, 0.4, 0.3) // sphere color
-    } else {
-        Pixel::new(0.2, 0.7, 0.8) // background color
+struct RayHit {
+    hit_point: Vector3<f32>,
+    hit_normal: Vector3<f32>,
+    material: Material,
+}
+
+fn scene_intersect(orig: Vector3<f32>, dir: Vector3<f32>, spheres: &[Sphere]) -> Option<RayHit> {
+    // get the sphere with the shortest distance to orig
+    match spheres
+        .iter()
+        .filter_map(|sphere| match sphere.ray_intersect(orig, dir) {
+            Some(sphere_dist) => Some((sphere, sphere_dist)),
+            None => None,
+        })
+        .min_by(|(_, sphere_dist_1), (_, sphere_dist_2)| {
+            sphere_dist_1
+                .partial_cmp(sphere_dist_2)
+                .expect("tried to compare to NaN")
+        }) {
+        Some((sphere, sphere_dist)) => {
+            let hit_point = orig + dir * sphere_dist;
+            let hit_normal = (hit_point - sphere.center).normalize();
+            Some(RayHit {
+                hit_point,
+                hit_normal,
+                material: *sphere.get_material(),
+            })
+        }
+        None => None,
     }
 }
 
-fn render(sphere: Sphere) -> FrameBuffer {
+fn cast_ray(ray_orig: Vector3<f32>, ray_dir: Vector3<f32>, spheres: &[Sphere]) -> Pixel {
+    match scene_intersect(ray_orig, ray_dir, spheres) {
+        Some(ray_hit) => ray_hit.material.diffuse_color,
+        None => Pixel::new(0.2, 0.7, 0.8), // background color
+    }
+}
+
+fn render(spheres: &[Sphere]) -> FrameBuffer {
     println!("rendering....");
 
     let fov: f32 = 80.0;
@@ -49,7 +81,7 @@ fn render(sphere: Sphere) -> FrameBuffer {
 
             framebuffer
                 .buffer
-                .push(cast_ray(Vector3::<f32>::zero(), ray_dir, &sphere));
+                .push(cast_ray(Vector3::<f32>::zero(), ray_dir, spheres));
         }
     }
 
@@ -96,7 +128,17 @@ fn get_out_file() -> String {
 }
 
 fn main() {
-    let sphere = Sphere::new(Vector3::new(0.0, 0.0, -10.0), 3.0);
-    let framebuffer = render(sphere);
+    let ivory = Material::new(Color::new(0.4, 0.4, 0.3));
+    let red_rubber = Material::new(Color::new(0.3, 0.1, 0.1));
+
+    let spheres = vec![
+        Sphere::new(Vector3::new(-3.0, 0.0, -16.0), 2.0, ivory),
+        Sphere::new(Vector3::new(-1.0, -1.5, -12.0), 2.0, red_rubber),
+        Sphere::new(Vector3::new(1.5, -0.5, -18.0), 3.0, red_rubber),
+        Sphere::new(Vector3::new(7.0, 5.0, -18.0), 4.0, ivory),
+    ];
+
+    let framebuffer = render(&spheres);
+
     export_to_ppm(&framebuffer, &get_out_file()).expect("failed to export to ppm");
 }
