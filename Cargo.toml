@@ -1,5 +1,5 @@
 [package]
-name = "tinygraph_x_rust"
+name = "tinygraph_x"
 version = "0.1.0"
 authors = ["Nicolas Zordan <nicolas.zordan.tek@gmail.com>"]
 edition = "2018"
@@ -8,4 +8,6 @@ edition = "2018"
 
 [dependencies]
 num = "0.4"
+num-traits = "0.2"
 arrayvec = "0.7"
+cgmath = "0.18"

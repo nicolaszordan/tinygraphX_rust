@@ -1,34 +1,55 @@
-use arrayvec::ArrayVec;
-use num::clamp;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 
-type Vec3<T> = [T; 3];
+use cgmath::{InnerSpace, Vector3};
+use num::{clamp, Zero};
+use tinygraph_x::shapes::shape::Shape;
+use tinygraph_x::shapes::sphere::Sphere;
+
+type Pixel = Vector3<f32>;
 
 struct FrameBuffer {
     width: usize,
     height: usize,
-    buffer: Vec<Vec3<f32>>,
+    buffer: Vec<Pixel>,
 }
 
-fn render() -> FrameBuffer {
+fn cast_ray(orig: Vector3<f32>, dir: Vector3<f32>, sphere: &Sphere) -> Pixel {
+    let sphere_dist = std::f32::MAX;
+    if sphere.ray_intersect(orig, dir, sphere_dist) {
+        Pixel::new(0.4, 0.4, 0.3) // sphere color
+    } else {
+        Pixel::new(0.2, 0.7, 0.8) // background color
+    }
+}
+
+fn render(sphere: Sphere) -> FrameBuffer {
     println!("rendering....");
+
+    let fov: f32 = 80.0;
 
     let mut framebuffer = FrameBuffer {
         width: 1024,
         height: 768,
-        buffer: Vec::<Vec3<f32>>::new(),
+        buffer: Vec::<Vector3<f32>>::new(),
     };
 
     for j in 0..framebuffer.height {
         for i in 0..framebuffer.width {
-            let pixel = [
-                j as f32 / framebuffer.height as f32,
-                i as f32 / framebuffer.width as f32,
-                0.0,
-            ];
-            framebuffer.buffer.push(pixel);
+            let ray_dir_x = (2.0 * (i as f32 + 0.5) / framebuffer.width as f32 - 1.0)
+                * (fov / 2.0).tan()
+                * framebuffer.width as f32
+                / framebuffer.height as f32;
+
+            let ray_dir_y =
+                -(2.0 * (j as f32 + 0.5) / framebuffer.height as f32 - 1.0) * (fov / 2.0).tan();
+
+            let ray_dir = Vector3::new(ray_dir_x, ray_dir_y, -1.0).normalize();
+
+            framebuffer
+                .buffer
+                .push(cast_ray(Vector3::<f32>::zero(), ray_dir, &sphere));
         }
     }
 
@@ -49,10 +70,11 @@ fn export_to_ppm(framebuffer: &FrameBuffer, outfile: &str) -> std::io::Result<()
         .buffer
         .iter()
         .map(|pixel| {
-            pixel
-                .iter()
-                .map(|c| ((255.0 * clamp(*c, 0.0, 1.0)) as u8))
-                .collect::<ArrayVec<u8, 3>>()
+            vec![
+                ((255.0 * clamp(pixel.x, 0.0, 1.0)) as u8),
+                ((255.0 * clamp(pixel.y, 0.0, 1.0)) as u8),
+                ((255.0 * clamp(pixel.z, 0.0, 1.0)) as u8),
+            ]
         })
         .flatten()
         .collect::<Vec<u8>>();
@@ -69,11 +91,12 @@ fn get_out_file() -> String {
     if args.len() > 1 {
         args[1].clone()
     } else {
-        "out.ppm".to_owned()
+        String::from("out.ppm")
     }
 }
 
 fn main() {
-    let framebuffer = render();
+    let sphere = Sphere::new(Vector3::new(0.0, 0.0, -10.0), 3.0);
+    let framebuffer = render(sphere);
     export_to_ppm(&framebuffer, &get_out_file()).expect("failed to export to ppm");
 }
