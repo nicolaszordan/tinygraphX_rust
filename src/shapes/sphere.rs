@@ -33,7 +33,7 @@ impl Shape for Sphere {
         let thc = (self.radius * self.radius - d2).sqrt();
         let mut t0 = tca - thc;
         let t1 = tca + thc;
-        if t0 < t1 {
+        if t0 < 0.0 {
             t0 = t1;
         }
         if t0 < 0.0 {
