@@ -2,11 +2,11 @@ use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 
-use cgmath::{InnerSpace, Vector3};
+use cgmath::{dot, InnerSpace, Vector3};
 use num::{clamp, Zero};
 
 use tinygraph_x::light::Light;
-use tinygraph_x::shapes::material::{Color, Material};
+use tinygraph_x::shapes::material::{Albedo, Color, Material};
 use tinygraph_x::shapes::shape::Shape;
 use tinygraph_x::shapes::sphere::Sphere;
 
@@ -22,6 +22,10 @@ struct RayHit {
     hit_point: Vector3<f32>,
     hit_normal: Vector3<f32>,
     material: Material,
+}
+
+fn reflect(incoming: Vector3<f32>, normal: Vector3<f32>) -> Vector3<f32> {
+    incoming - normal * 2.0 * dot(incoming, normal)
 }
 
 fn scene_intersect(orig: Vector3<f32>, dir: Vector3<f32>, spheres: &[Sphere]) -> Option<RayHit> {
@@ -58,15 +62,24 @@ fn cast_ray(
 ) -> Pixel {
     match scene_intersect(ray_orig, ray_dir, spheres) {
         Some(ray_hit) => {
-            let diffuse_light_intensity = lights
+            let (diffuse_light_intensity, specular_light_intensity) = lights
                 .iter()
                 .map(|light| {
                     let light_dir = (light.position - ray_hit.hit_point).normalize();
-                    light.intensity * 0.0f32.max(cgmath::dot(light_dir, ray_hit.hit_normal))
+                    (
+                        light.intensity * 0.0f32.max(dot(light_dir, ray_hit.hit_normal)),
+                        light.intensity
+                            * 0.0f32
+                                .max(dot(reflect(light_dir, ray_hit.hit_normal), ray_dir))
+                                .powf(ray_hit.material.specular_exponent),
+                    )
                 })
-                .sum();
+                .fold((0.0, 0.0), |acc, x| (acc.0 + x.0, acc.1 + x.1)); // sum of both intensities
 
-            ray_hit.material.diffuse_color * diffuse_light_intensity
+            ray_hit.material.diffuse_color * diffuse_light_intensity * ray_hit.material.albedo[0]
+                + Vector3::new(1.0, 1.0, 1.0)
+                    * specular_light_intensity
+                    * ray_hit.material.albedo[1]
         }
         None => Pixel::new(0.2, 0.7, 0.8), // background color
     }
@@ -107,15 +120,19 @@ fn render(spheres: &[Sphere], lights: &[Light]) -> FrameBuffer {
 }
 
 fn main() {
-    let ivory = Material::new(Color::new(0.4, 0.4, 0.3));
-    let red_rubber = Material::new(Color::new(0.3, 0.1, 0.1));
+    let ivory = Material::new(Albedo::new(0.6, 0.3), Color::new(0.4, 0.4, 0.3), 50.0);
+    let red_rubber = Material::new(Albedo::new(0.9, 0.1), Color::new(0.3, 0.1, 0.1), 10.0);
 
     let spheres = vec![
         Sphere::new(Vector3::new(1.5, -0.5, -18.), 3.0, red_rubber),
         Sphere::new(Vector3::new(7.0, 5.0, -18.0), 4.0, ivory),
     ];
 
-    let lights = vec![Light::new(Vector3::new(-20.0, 20.0, 20.0), 1.5)];
+    let lights = vec![
+        Light::new(Vector3::new(-20.0, 20.0, 20.0), 1.5),
+        Light::new(Vector3::new(30.0, 50.0, -25.0), 1.8),
+        Light::new(Vector3::new(30.0, 20.0, 30.0), 1.7),
+    ];
 
     let framebuffer = render(&spheres, &lights);
 
@@ -133,6 +150,7 @@ fn export_to_ppm(framebuffer: &FrameBuffer, outfile: &str) -> std::io::Result<()
     let buffer = framebuffer
         .buffer
         .iter()
+        .rev()
         .map(|pixel| {
             vec![
                 ((255.0 * clamp(pixel.x, 0.0, 1.0)) as u8),
