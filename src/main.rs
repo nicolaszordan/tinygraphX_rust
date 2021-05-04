@@ -2,7 +2,7 @@ use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 
-use cgmath::{dot, InnerSpace, Vector3};
+use cgmath::{dot, InnerSpace, Vector3, BaseFloat};
 use num::{clamp, Zero};
 
 use tinygraph_x::light::Light;
@@ -26,6 +26,10 @@ struct RayHit {
 
 fn reflect(incoming: Vector3<f32>, normal: Vector3<f32>) -> Vector3<f32> {
     incoming - normal * 2.0 * dot(incoming, normal)
+}
+
+fn vec_norm<T: BaseFloat>(vec: Vector3<T>) -> T {
+    (vec.x * vec.x + vec.y * vec.y + vec.z * vec.z).sqrt()
 }
 
 fn scene_intersect(orig: Vector3<f32>, dir: Vector3<f32>, spheres: &[Sphere]) -> Option<RayHit> {
@@ -66,6 +70,23 @@ fn cast_ray(
                 .iter()
                 .map(|light| {
                     let light_dir = (light.position - ray_hit.hit_point).normalize();
+                    let light_distance = vec_norm(light.position - ray_hit.hit_point);
+
+                    let shadow_orig = if dot(light_dir, ray_hit.hit_normal) < 0.0 {
+                        ray_hit.hit_point - ray_hit.hit_normal * 1e-3
+                    } else {
+                        ray_hit.hit_point + ray_hit.hit_normal * 1e-3
+                    };
+
+                    match scene_intersect(shadow_orig, light_dir, spheres) {
+                        Some(shadow_hit) => {
+                            if vec_norm(shadow_hit.hit_point - shadow_orig) < light_distance {
+                                return (0.0, 0.0);
+                            }
+                        }
+                        None => ()
+                    }
+
                     (
                         light.intensity * 0.0f32.max(dot(light_dir, ray_hit.hit_normal)),
                         light.intensity
