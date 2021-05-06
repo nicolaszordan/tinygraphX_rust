@@ -1,7 +1,7 @@
-use cgmath::{Vector2, Vector3};
+use cgmath::Vector3;
 
 pub type Color = Vector3<f32>;
-pub type Albedo = Vector2<f32>;
+pub type Albedo = Vector3<f32>;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Material {

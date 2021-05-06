@@ -2,7 +2,7 @@ use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 
-use cgmath::{dot, InnerSpace, Vector3, BaseFloat};
+use cgmath::{dot, BaseFloat, InnerSpace, Vector3};
 use num::{clamp, Zero};
 
 use tinygraph_x::light::Light;
@@ -63,9 +63,22 @@ fn cast_ray(
     ray_dir: Vector3<f32>,
     spheres: &[Sphere],
     lights: &[Light],
+    depth: usize,
 ) -> Pixel {
+    if depth > 4 {
+        return Pixel::new(0.2, 0.7, 0.8); // background color
+    }
+
     match scene_intersect(ray_orig, ray_dir, spheres) {
         Some(ray_hit) => {
+            let reflect_dir = reflect(ray_dir, ray_hit.hit_normal);
+            let reflect_orig = if dot(reflect_dir, ray_hit.hit_normal) < 0.0 {
+                ray_hit.hit_point - ray_hit.hit_normal * 1e-3
+            } else {
+                ray_hit.hit_point + ray_hit.hit_normal * 1e-3
+            };
+            let reflect_color = cast_ray(reflect_orig, reflect_dir, spheres, lights, depth + 1);
+
             let (diffuse_light_intensity, specular_light_intensity) = lights
                 .iter()
                 .map(|light| {
@@ -84,7 +97,7 @@ fn cast_ray(
                                 return (0.0, 0.0);
                             }
                         }
-                        None => ()
+                        None => (),
                     }
 
                     (
@@ -101,6 +114,7 @@ fn cast_ray(
                 + Vector3::new(1.0, 1.0, 1.0)
                     * specular_light_intensity
                     * ray_hit.material.albedo[1]
+                + reflect_color * ray_hit.material.albedo[2]
         }
         None => Pixel::new(0.2, 0.7, 0.8), // background color
     }
@@ -131,7 +145,7 @@ fn render(spheres: &[Sphere], lights: &[Light]) -> FrameBuffer {
 
             framebuffer
                 .buffer
-                .push(cast_ray(Vector3::zero(), ray_dir, spheres, lights));
+                .push(cast_ray(Vector3::zero(), ray_dir, spheres, lights, 0));
         }
     }
 
@@ -141,12 +155,19 @@ fn render(spheres: &[Sphere], lights: &[Light]) -> FrameBuffer {
 }
 
 fn main() {
-    let ivory = Material::new(Albedo::new(0.6, 0.3), Color::new(0.4, 0.4, 0.3), 50.0);
-    let red_rubber = Material::new(Albedo::new(0.9, 0.1), Color::new(0.3, 0.1, 0.1), 10.0);
+    let ivory = Material::new(Albedo::new(0.6, 0.3, 0.1), Color::new(0.4, 0.4, 0.3), 50.0);
+    let red_rubber = Material::new(Albedo::new(0.9, 0.1, 0.0), Color::new(0.3, 0.1, 0.1), 10.0);
+    let mirror = Material::new(
+        Albedo::new(0.0, 10.0, 0.8),
+        Color::new(1.0, 1.0, 1.0),
+        1425.0,
+    );
 
     let spheres = vec![
+        Sphere::new(Vector3::new(-3.0, 0.0, -16.0), 2.0, ivory),
+        Sphere::new(Vector3::new(-1.0, -1.5, -12.), 2.0, mirror),
         Sphere::new(Vector3::new(1.5, -0.5, -18.), 3.0, red_rubber),
-        Sphere::new(Vector3::new(7.0, 5.0, -18.0), 4.0, ivory),
+        Sphere::new(Vector3::new(7.0, 5.0, -18.0), 4.0, mirror),
     ];
 
     let lights = vec![
