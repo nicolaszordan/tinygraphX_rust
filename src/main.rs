@@ -7,7 +7,8 @@ use num::{clamp, Zero};
 
 use tinygraph_x::light::Light;
 use tinygraph_x::shapes::material::{Albedo, Color, Material};
-use tinygraph_x::shapes::shape::Shape;
+use tinygraph_x::shapes::plane::Plane;
+use tinygraph_x::shapes::shape::{RayHit, Shape};
 use tinygraph_x::shapes::sphere::Sphere;
 
 type Pixel = Vector3<f32>;
@@ -16,12 +17,6 @@ struct FrameBuffer {
     width: usize,
     height: usize,
     buffer: Vec<Pixel>,
-}
-
-struct RayHit {
-    hit_point: Vector3<f32>,
-    hit_normal: Vector3<f32>,
-    material: Material,
 }
 
 fn reflect(incoming: Vector3<f32>, normal: Vector3<f32>) -> Vector3<f32> {
@@ -52,36 +47,27 @@ fn vec_norm<T: BaseFloat>(vec: Vector3<T>) -> T {
     (vec.x * vec.x + vec.y * vec.y + vec.z * vec.z).sqrt()
 }
 
-fn scene_intersect(orig: Vector3<f32>, dir: Vector3<f32>, spheres: &[Sphere]) -> Option<RayHit> {
+fn scene_intersect(
+    orig: Vector3<f32>,
+    dir: Vector3<f32>,
+    shapes: &[Box<dyn Shape>],
+) -> Option<RayHit> {
     // get the sphere with the shortest distance to orig
-    match spheres
+    shapes
         .iter()
-        .filter_map(|sphere| match sphere.ray_intersect(orig, dir) {
-            Some(sphere_dist) => Some((sphere, sphere_dist)),
-            None => None,
-        })
-        .min_by(|(_, sphere_dist_1), (_, sphere_dist_2)| {
-            sphere_dist_1
-                .partial_cmp(sphere_dist_2)
+        .filter_map(|shape| shape.ray_intersect(orig, dir))
+        .min_by(|ray_hit_1, ray_hit_2| {
+            ray_hit_1
+                .hit_dist
+                .partial_cmp(&ray_hit_2.hit_dist)
                 .expect("tried to compare to NaN")
-        }) {
-        Some((sphere, sphere_dist)) => {
-            let hit_point = orig + dir * sphere_dist;
-            let hit_normal = (hit_point - sphere.center).normalize();
-            Some(RayHit {
-                hit_point,
-                hit_normal,
-                material: *sphere.get_material(),
-            })
-        }
-        None => None,
-    }
+        })
 }
 
 fn cast_ray(
     ray_orig: Vector3<f32>,
     ray_dir: Vector3<f32>,
-    spheres: &[Sphere],
+    shapes: &[Box<dyn Shape>],
     lights: &[Light],
     depth: usize,
 ) -> Pixel {
@@ -89,7 +75,7 @@ fn cast_ray(
         return Pixel::new(0.2, 0.7, 0.8); // background color
     }
 
-    match scene_intersect(ray_orig, ray_dir, spheres) {
+    match scene_intersect(ray_orig, ray_dir, shapes) {
         Some(ray_hit) => {
             // calc reflect
             let reflect_dir = reflect(ray_dir, ray_hit.hit_normal);
@@ -98,7 +84,7 @@ fn cast_ray(
             } else {
                 ray_hit.hit_point + ray_hit.hit_normal * 1e-3
             };
-            let reflect_color = cast_ray(reflect_orig, reflect_dir, spheres, lights, depth + 1);
+            let reflect_color = cast_ray(reflect_orig, reflect_dir, shapes, lights, depth + 1);
 
             // calc refract
             let refract_dir = refract(
@@ -111,7 +97,7 @@ fn cast_ray(
             } else {
                 ray_hit.hit_point + ray_hit.hit_normal * 1e-3
             };
-            let refract_color = cast_ray(refract_orig, refract_dir, spheres, lights, depth + 1);
+            let refract_color = cast_ray(refract_orig, refract_dir, shapes, lights, depth + 1);
 
             let (diffuse_light_intensity, specular_light_intensity) = lights
                 .iter()
@@ -125,13 +111,10 @@ fn cast_ray(
                         ray_hit.hit_point + ray_hit.hit_normal * 1e-3
                     };
 
-                    match scene_intersect(shadow_orig, light_dir, spheres) {
-                        Some(shadow_hit) => {
-                            if vec_norm(shadow_hit.hit_point - shadow_orig) < light_distance {
-                                return (0.0, 0.0);
-                            }
+                    if let Some(shadow_hit) = scene_intersect(shadow_orig, light_dir, shapes) {
+                        if vec_norm(shadow_hit.hit_point - shadow_orig) < light_distance {
+                            return (0.0, 0.0);
                         }
-                        None => (),
                     }
 
                     (
@@ -155,7 +138,7 @@ fn cast_ray(
     }
 }
 
-fn render(spheres: &[Sphere], lights: &[Light]) -> FrameBuffer {
+fn render(shapes: &[Box<dyn Shape>], lights: &[Light]) -> FrameBuffer {
     println!("rendering....");
 
     let fov: f32 = 80.0;
@@ -163,6 +146,8 @@ fn render(spheres: &[Sphere], lights: &[Light]) -> FrameBuffer {
     let mut framebuffer = FrameBuffer {
         width: 1024,
         height: 768,
+        //width: 4096,
+        //height: 3072,
         buffer: Vec::<Vector3<f32>>::with_capacity(1024 * 768),
     };
 
@@ -180,7 +165,7 @@ fn render(spheres: &[Sphere], lights: &[Light]) -> FrameBuffer {
 
             framebuffer
                 .buffer
-                .push(cast_ray(Vector3::zero(), ray_dir, spheres, lights, 0));
+                .push(cast_ray(Vector3::zero(), ray_dir, shapes, lights, 0));
         }
     }
 
@@ -215,11 +200,16 @@ fn main() {
         1.0,
     );
 
-    let spheres = vec![
-        Sphere::new(Vector3::new(-3.0, 0.0, -16.0), 2.0, ivory),
-        Sphere::new(Vector3::new(-1.0, -1.5, -12.), 2.0, glass),
-        Sphere::new(Vector3::new(1.5, -0.5, -18.), 3.0, red_rubber),
-        Sphere::new(Vector3::new(7.0, 5.0, -18.0), 4.0, mirror),
+    let shapes = vec![
+        Box::new(Sphere::new(Vector3::new(-3.0, 0.0, -16.0), 2.0, ivory)) as Box<dyn Shape>,
+        Box::new(Sphere::new(Vector3::new(-1.0, -1.5, -12.), 2.0, glass)) as Box<dyn Shape>,
+        Box::new(Sphere::new(Vector3::new(1.5, -0.5, -18.), 3.0, red_rubber)) as Box<dyn Shape>,
+        Box::new(Sphere::new(Vector3::new(7.0, 5.0, -18.0), 4.0, mirror)) as Box<dyn Shape>,
+        Box::new(Plane::new(
+            Vector3::new(0.0, -4.0, 0.0),
+            Vector3::new(0.0, 1.0, 0.0),
+            mirror,
+        )) as Box<dyn Shape>,
     ];
 
     let lights = vec![
@@ -228,7 +218,7 @@ fn main() {
         Light::new(Vector3::new(30.0, 20.0, 30.0), 1.7),
     ];
 
-    let framebuffer = render(&spheres, &lights);
+    let framebuffer = render(&shapes, &lights);
 
     export_to_ppm(&framebuffer, &get_out_file()).expect("failed to export to ppm");
 }

@@ -1,7 +1,7 @@
 use crate::shapes::material::Material;
-use crate::shapes::shape::Shape;
+use crate::shapes::shape::{RayHit, Shape};
 
-use cgmath::Vector3;
+use cgmath::{InnerSpace, Vector3};
 
 pub struct Sphere {
     pub center: Vector3<f32>,
@@ -20,7 +20,7 @@ impl Sphere {
 }
 
 impl Shape for Sphere {
-    fn ray_intersect(&self, ray_orig: Vector3<f32>, ray_dir: Vector3<f32>) -> Option<f32> {
+    fn ray_intersect(&self, ray_orig: Vector3<f32>, ray_dir: Vector3<f32>) -> Option<RayHit> {
         // calc vector sphere_center -> ray_orig
         let vec_center_to_ray = self.center - ray_orig;
 
@@ -39,7 +39,13 @@ impl Shape for Sphere {
         if t0 < 0.0 {
             None
         } else {
-            Some(t0)
+            let hit_point = ray_orig + ray_dir * t0;
+            Some(RayHit {
+                hit_dist: t0,
+                hit_point,
+                hit_normal: (hit_point - self.center).normalize(),
+                material: self.material,
+            })
         }
     }
 
