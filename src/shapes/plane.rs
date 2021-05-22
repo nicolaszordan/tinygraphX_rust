@@ -22,12 +22,12 @@ impl Plane {
 impl Shape for Plane {
     fn ray_intersect(&self, ray_orig: Vector3<f32>, ray_dir: Vector3<f32>) -> Option<RayHit> {
         let denom = cgmath::dot(self.normal, ray_dir);
-        if denom.abs() < 1e-9 {
+        if denom.abs() < 1e-3 {
             // ray is considered parallel to the plane
             None
         } else {
-            let p0l0 = self.point - ray_orig;
-            let hit_dist = cgmath::dot(p0l0, self.normal) / denom;
+            let point_to_ray = self.point - ray_orig;
+            let hit_dist = cgmath::dot(point_to_ray, self.normal) / denom;
             let hit_point = ray_orig + ray_dir * hit_dist;
             if hit_dist >= 0.0 {
                 Some(RayHit {
@@ -41,10 +41,6 @@ impl Shape for Plane {
                 None
             }
         }
-    }
-
-    fn get_material(&self) -> &Material {
-        &self.material
     }
 }
 
@@ -68,41 +64,21 @@ mod test {
 
         assert!(plane.ray_intersect(ray_orig, ray_dir).is_some());
 
-        let plane = Plane::new(
-            Vector3::new(0.0, 0.0, 0.0),
-            Vector3::new(0.0, 1.0, 0.0),
-            material,
-        );
         let ray_dir = Vector3::new(0.0, 0.5, 0.0);
         let ray_orig = Vector3::new(0.0, -1.0, 0.0);
 
         assert!(plane.ray_intersect(ray_orig, ray_dir).is_some());
 
-        let plane = Plane::new(
-            Vector3::new(0.0, 0.0, 0.0),
-            Vector3::new(0.0, 1.0, 0.0),
-            material,
-        );
         let ray_dir = Vector3::new(0.0, 1.0, 1.0);
         let ray_orig = Vector3::new(0.0, -1.0, 0.0);
 
         assert!(plane.ray_intersect(ray_orig, ray_dir).is_some());
 
-        let plane = Plane::new(
-            Vector3::new(0.0, 0.0, 0.0),
-            Vector3::new(0.0, 1.0, 0.0),
-            material,
-        );
         let ray_dir = Vector3::new(-1.0, -1.0, -1.0);
         let ray_orig = Vector3::new(0.0, 1.0, 0.0);
 
         assert!(plane.ray_intersect(ray_orig, ray_dir).is_some());
 
-        let plane = Plane::new(
-            Vector3::new(0.0, 0.0, 0.0),
-            Vector3::new(0.0, 1.0, 0.0),
-            material,
-        );
         let ray_dir = Vector3::new(0.0, -1.0, 0.0);
         let ray_orig = Vector3::new(0.0, 1.0, 0.0);
 

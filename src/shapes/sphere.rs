@@ -48,8 +48,4 @@ impl Shape for Sphere {
             })
         }
     }
-
-    fn get_material(&self) -> &Material {
-        &self.material
-    }
 }
