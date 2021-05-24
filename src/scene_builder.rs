@@ -102,9 +102,9 @@ struct CheckBoardDiskJson {
 impl SceneJson {
     fn from_file(file_path: &str) -> SceneJson {
         let file =
-            File::open(file_path).unwrap_or_else(|_| panic!("failed to open file: {}", file_path));
+            File::open(file_path).unwrap_or_else(|err| panic!("failed to open file: {}: \"{}\"", file_path, err));
         serde_json::from_reader(file)
-            .unwrap_or_else(|_| panic!("failed to parse file: {}", file_path))
+            .unwrap_or_else(|err| panic!("failed to parse file: {}: {}", file_path, err))
     }
 }
 
