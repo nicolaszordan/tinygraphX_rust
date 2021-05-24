@@ -55,7 +55,6 @@ impl Shape for Sphere {
 #[cfg(test)]
 mod test {
     use super::*;
-    use serde_json::json;
 
     use crate::shapes::material::{Albedo, Color};
 

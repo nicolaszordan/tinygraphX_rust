@@ -31,7 +31,6 @@ impl Material {
 #[cfg(test)]
 mod test {
     use super::*;
-    use serde_json::json;
 
     #[test]
     fn test_deserialize() {
