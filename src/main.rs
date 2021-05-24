@@ -6,7 +6,7 @@ use cgmath::{dot, BaseFloat, InnerSpace, Vector3};
 use num::{clamp, Zero};
 
 use tinygraph_x::light::Light;
-use tinygraph_x::scene_builder::Scene;
+use tinygraph_x::scene::Scene;
 use tinygraph_x::shapes::shape::{RayHit, Shape};
 
 type Pixel = Vector3<f32>;
