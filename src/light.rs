@@ -1,5 +1,7 @@
 use cgmath::Vector3;
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize)]
 pub struct Light {
     pub position: Vector3<f32>,
     pub intensity: f32,

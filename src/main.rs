@@ -6,10 +6,8 @@ use cgmath::{dot, BaseFloat, InnerSpace, Vector3};
 use num::{clamp, Zero};
 
 use tinygraph_x::light::Light;
-use tinygraph_x::shapes::checkboard_disk::CheckBoardDisk;
-use tinygraph_x::shapes::material::{Albedo, Color, Material};
+use tinygraph_x::scene_builder::Scene;
 use tinygraph_x::shapes::shape::{RayHit, Shape};
-use tinygraph_x::shapes::sphere::Sphere;
 
 type Pixel = Vector3<f32>;
 
@@ -175,65 +173,9 @@ fn render(shapes: &[Box<dyn Shape>], lights: &[Light]) -> FrameBuffer {
 }
 
 fn main() {
-    let ivory = Material::new(
-        Albedo::new(0.6, 0.3, 0.1, 0.0),
-        Color::new(0.4, 0.4, 0.3),
-        50.0,
-        1.0,
-    );
-    let red_rubber = Material::new(
-        Albedo::new(0.9, 0.1, 0.0, 0.0),
-        Color::new(0.3, 0.1, 0.1),
-        10.0,
-        1.0,
-    );
-    let glass = Material::new(
-        Albedo::new(0.0, 0.5, 0.1, 0.8),
-        Color::new(0.6, 0.7, 0.8),
-        125.0,
-        1.5,
-    );
-    let mirror = Material::new(
-        Albedo::new(0.0, 10.0, 0.8, 0.0),
-        Color::new(1.0, 1.0, 1.0),
-        1425.0,
-        1.0,
-    );
-    let checkboard_orange = Material::new(
-        Albedo::new(0.9, 0.1, 0.0, 0.0),
-        Color::new(0.5, 0.3, 0.1),
-        10.0,
-        1.0,
-    );
-    let checkboard_white = Material::new(
-        Albedo::new(0.9, 0.1, 0.0, 0.0),
-        Color::new(0.5, 0.5, 0.5),
-        10.0,
-        1.0,
-    );
+    let scene = Scene::from_file(&get_scene_file());
 
-    let shapes = vec![
-        Box::new(Sphere::new(Vector3::new(-3.0, 0.0, -16.0), 2.0, ivory)) as Box<dyn Shape>,
-        Box::new(Sphere::new(Vector3::new(-1.0, -1.5, -12.), 2.0, glass)) as Box<dyn Shape>,
-        Box::new(Sphere::new(Vector3::new(1.5, -0.5, -18.), 3.0, red_rubber)) as Box<dyn Shape>,
-        Box::new(Sphere::new(Vector3::new(7.0, 5.0, -18.0), 4.0, mirror)) as Box<dyn Shape>,
-        Box::new(CheckBoardDisk::new(
-            Vector3::new(0.0, -5.0, -18.0),
-            Vector3::new(0.0, 1.0, 0.0),
-            10.0,
-            1.0,
-            checkboard_orange,
-            checkboard_white,
-        )) as Box<dyn Shape>,
-    ];
-
-    let lights = vec![
-        Light::new(Vector3::new(-20.0, 20.0, 20.0), 1.5),
-        Light::new(Vector3::new(30.0, 50.0, -25.0), 1.8),
-        Light::new(Vector3::new(30.0, 20.0, 30.0), 1.7),
-    ];
-
-    let framebuffer = render(&shapes, &lights);
+    let framebuffer = render(&scene.shapes, &scene.lights);
 
     export_to_ppm(&framebuffer, &get_out_file()).expect("failed to export to ppm");
 }
@@ -265,6 +207,15 @@ fn export_to_ppm(framebuffer: &FrameBuffer, outfile: &str) -> std::io::Result<()
     println!("exporting done");
 
     Ok(())
+}
+
+fn get_scene_file() -> String {
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 2 {
+        args[2].clone()
+    } else {
+        String::from("scene.json")
+    }
 }
 
 fn get_out_file() -> String {

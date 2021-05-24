@@ -2,7 +2,9 @@ use crate::shapes::material::Material;
 use crate::shapes::shape::{RayHit, Shape};
 
 use cgmath::Vector3;
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize)]
 pub struct Plane {
     pub point: Vector3<f32>,
     pub normal: Vector3<f32>,

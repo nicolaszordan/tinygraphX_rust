@@ -2,8 +2,9 @@ use crate::shapes::material::Material;
 use crate::shapes::shape::{RayHit, Shape};
 
 use cgmath::Vector3;
+use serde::{Deserialize, Serialize};
 
-// squared chekboard
+#[derive(Serialize, Deserialize)]
 pub struct Disk {
     pub center: Vector3<f32>,
     pub normal: Vector3<f32>,

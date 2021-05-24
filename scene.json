@@ -1,0 +1,180 @@
+{
+    "materials": {
+        "ivory": {
+            "albedo": {
+                "x": 0.6,
+                "y": 0.3,
+                "z": 0.1,
+                "w": 0.0
+            },
+            "diffuse_color": {
+                "x": 0.4,
+                "y": 0.4,
+                "z": 0.3
+            },
+            "specular_exponent": 50.0,
+            "refractive_index": 1.0
+        },
+        "checkboard_orange": {
+            "albedo": {
+                "x": 0.9,
+                "y": 0.1,
+                "z": 0.0,
+                "w": 0.0
+            },
+            "diffuse_color": {
+                "x": 0.5,
+                "y": 0.3,
+                "z": 0.1
+            },
+            "specular_exponent": 10.0,
+            "refractive_index": 1.0
+        },
+        "mirror": {
+            "albedo": {
+                "x": 0.0,
+                "y": 10.0,
+                "z": 0.8,
+                "w": 0.0
+            },
+            "diffuse_color": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "specular_exponent": 1425.0,
+            "refractive_index": 1.0
+        },
+        "checkboard_white": {
+            "albedo": {
+                "x": 0.9,
+                "y": 0.1,
+                "z": 0.0,
+                "w": 0.0
+            },
+            "diffuse_color": {
+                "x": 0.5,
+                "y": 0.5,
+                "z": 0.5
+            },
+            "specular_exponent": 10.0,
+            "refractive_index": 1.0
+        },
+        "glass": {
+            "albedo": {
+                "x": 0.0,
+                "y": 0.5,
+                "z": 0.1,
+                "w": 0.8
+            },
+            "diffuse_color": {
+                "x": 0.6,
+                "y": 0.7,
+                "z": 0.8
+            },
+            "specular_exponent": 125.0,
+            "refractive_index": 1.5
+        },
+        "red_rubber": {
+            "albedo": {
+                "x": 0.9,
+                "y": 0.1,
+                "z": 0.0,
+                "w": 0.0
+            },
+            "diffuse_color": {
+                "x": 0.3,
+                "y": 0.1,
+                "z": 0.1
+            },
+            "specular_exponent": 10.0,
+            "refractive_index": 1.0
+        }
+    },
+    "lights": [
+        {
+            "position": {
+                "x": -20.0,
+                "y": 20.0,
+                "z": 20.0
+            },
+            "intensity": 1.5
+        },
+        {
+            "position": {
+                "x": 30.0,
+                "y": 50.0,
+                "z": -25.0
+            },
+            "intensity": 1.8
+        },
+        {
+            "position": {
+                "x": 30.0,
+                "y": 20.0,
+                "z": 30.0
+            },
+            "intensity": 1.7
+        }
+    ],
+    "shapes": {
+        "spheres": [
+            {
+                "center": {
+                    "x": -3.0,
+                    "y": 0.0,
+                    "z": -16.0
+                },
+                "radius": 2.0,
+                "material": "ivory"
+            },
+            {
+                "center": {
+                    "x": -1.0,
+                    "y": -1.5,
+                    "z": -12.0
+                },
+                "radius": 2.0,
+                "material": "glass"
+            },
+            {
+                "center": {
+                    "x": 1.5,
+                    "y": -0.5,
+                    "z": -18.0
+                },
+                "radius": 3.0,
+                "material": "red_rubber"
+            },
+            {
+                "center": {
+                    "x": 7.0,
+                    "y": 5.0,
+                    "z": -18.0
+                },
+                "radius": 4.0,
+                "material": "mirror"
+            }
+        ],
+        "planes": [],
+        "disks": [],
+        "checkboard_disks": [
+            {
+                "center": {
+                    "x": 0.0,
+                    "y": -5.0,
+                    "z": -18.0
+                },
+                "normal": {
+                    "x": 0.0,
+                    "y": 1.0,
+                    "z": 0.0
+                },
+                "radius": 10.0,
+                "dist_between_mats": 1.0,
+                "material1": "checkboard_orange",
+                "material2": "checkboard_white"
+            }
+        ]
+    }
+}

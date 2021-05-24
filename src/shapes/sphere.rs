@@ -2,7 +2,9 @@ use crate::shapes::material::Material;
 use crate::shapes::shape::{RayHit, Shape};
 
 use cgmath::{InnerSpace, Vector3};
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize)]
 pub struct Sphere {
     pub center: Vector3<f32>,
     pub radius: f32,
@@ -47,5 +49,36 @@ impl Shape for Sphere {
                 material: self.material,
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use serde_json::json;
+
+    use crate::shapes::material::{Albedo, Color};
+
+    #[test]
+    fn test_deserialize() {
+        let shpere_json = r#"
+        {
+            "center": [1, 2, 3],
+            "radius": 4,
+            "material": {
+                "albedo": [1, 2, 3, 4],
+                "diffuse_color": [5, 6, 7],
+                "specular_exponent": 8,
+                "refractive_index": 9
+            }
+        }"#;
+
+        let sphere: Sphere = serde_json::from_str(shpere_json).expect("failed to deserialize");
+        assert_eq!(sphere.center, Vector3::new(1.0, 2.0, 3.0));
+        assert_eq!(sphere.radius, 4.0);
+        assert_eq!(sphere.material.albedo, Albedo::new(1.0, 2.0, 3.0, 4.0));
+        assert_eq!(sphere.material.diffuse_color, Color::new(5.0, 6.0, 7.0));
+        assert_eq!(sphere.material.specular_exponent, 8.0);
+        assert_eq!(sphere.material.refractive_index, 9.0);
     }
 }
