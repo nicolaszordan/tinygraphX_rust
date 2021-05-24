@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::fs::File;
 
 use cgmath::Vector3;
+use image::io::Reader as ImageReader;
+use image::RgbImage;
 use serde::{Deserialize, Serialize};
 
 use crate::light::Light;
@@ -17,11 +19,12 @@ pub struct Scene {
     pub materials: HashMap<String, Material>,
     pub lights: Vec<Light>,
     pub shapes: Vec<Box<dyn Shape>>,
+    pub background: RgbImage,
 }
 
 impl Scene {
     pub fn from_file(file_path: &str) -> Self {
-        println!("importing scene from {}", file_path);
+        println!("importing scene: [file={}]", file_path);
         let scene_json = SceneJson::from_file(file_path);
         let shapes = scene_json
             .shapes
@@ -40,11 +43,32 @@ impl Scene {
                 Box::new(disk.clone().into_checkboard_disk(&scene_json.materials)) as Box<dyn Shape>
             }))
             .collect();
+        println!("importing background: [file={}]", file_path);
+        let background = Scene::create_background(&scene_json.background);
         Self {
             materials: scene_json.materials,
             lights: scene_json.lights,
             shapes,
+            background,
         }
+    }
+
+    fn create_background(background_file: &str) -> RgbImage {
+        ImageReader::open(background_file)
+            .unwrap_or_else(|err| {
+                panic!(
+                    "failed to open background file: {}: {}",
+                    background_file, err
+                )
+            })
+            .decode()
+            .unwrap_or_else(|err| {
+                panic!(
+                    "failed to decode background file: {}: {}",
+                    background_file, err
+                )
+            })
+            .to_rgb8()
     }
 }
 
@@ -53,6 +77,7 @@ struct SceneJson {
     pub materials: HashMap<String, MaterialJson>,
     pub lights: Vec<LightJson>,
     pub shapes: ShapesJson,
+    pub background: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -101,8 +126,8 @@ struct CheckBoardDiskJson {
 
 impl SceneJson {
     fn from_file(file_path: &str) -> SceneJson {
-        let file =
-            File::open(file_path).unwrap_or_else(|err| panic!("failed to open file: {}: \"{}\"", file_path, err));
+        let file = File::open(file_path)
+            .unwrap_or_else(|err| panic!("failed to open file: {}: \"{}\"", file_path, err));
         serde_json::from_reader(file)
             .unwrap_or_else(|err| panic!("failed to parse file: {}: {}", file_path, err))
     }

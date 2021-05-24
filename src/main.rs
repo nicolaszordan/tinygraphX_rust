@@ -1,8 +1,10 @@
 use std::env;
+use std::f32::consts::PI;
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::{prelude::*, stdout};
 
 use cgmath::{dot, BaseFloat, InnerSpace, Vector3};
+use image::{Rgb, RgbImage};
 use num::{clamp, Zero};
 
 use tinygraph_x::light::Light;
@@ -67,10 +69,11 @@ fn cast_ray(
     ray_dir: Vector3<f32>,
     shapes: &[Box<dyn Shape>],
     lights: &[Light],
+    background: &RgbImage,
     depth: usize,
 ) -> Pixel {
-    if depth > 4 {
-        return Pixel::new(0.2, 0.7, 0.8); // background color
+    if depth > 10 {
+        return get_background_pixel(ray_dir, background);
     }
 
     match scene_intersect(ray_orig, ray_dir, shapes) {
@@ -82,7 +85,14 @@ fn cast_ray(
             } else {
                 ray_hit.hit_point + ray_hit.hit_normal * 1e-3
             };
-            let reflect_color = cast_ray(reflect_orig, reflect_dir, shapes, lights, depth + 1);
+            let reflect_color = cast_ray(
+                reflect_orig,
+                reflect_dir,
+                shapes,
+                lights,
+                background,
+                depth + 1,
+            );
 
             // calc refract
             let refract_dir = refract(
@@ -95,7 +105,14 @@ fn cast_ray(
             } else {
                 ray_hit.hit_point + ray_hit.hit_normal * 1e-3
             };
-            let refract_color = cast_ray(refract_orig, refract_dir, shapes, lights, depth + 1);
+            let refract_color = cast_ray(
+                refract_orig,
+                refract_dir,
+                shapes,
+                lights,
+                background,
+                depth + 1,
+            );
 
             let (diffuse_light_intensity, specular_light_intensity) = lights
                 .iter()
@@ -132,24 +149,44 @@ fn cast_ray(
                 + reflect_color * ray_hit.material.albedo[2]
                 + refract_color * ray_hit.material.albedo[3]
         }
-        None => Pixel::new(0.2, 0.7, 0.8), // background color
+        None => get_background_pixel(ray_dir, background),
     }
 }
 
-fn render(shapes: &[Box<dyn Shape>], lights: &[Light]) -> FrameBuffer {
-    println!("rendering....");
+fn get_background_pixel(ray_dir: Vector3<f32>, background: &RgbImage) -> Pixel {
+    let envmap_width = background.width();
+    let envmap_height = background.height();
 
+    let x_raw = (((ray_dir.z.atan2(ray_dir.x) / (2.0 * PI) + 0.5) * envmap_width as f32)
+        + envmap_width as f32)
+        % envmap_width as f32;
+
+    let y_raw = ray_dir.y.acos() / PI * envmap_height as f32;
+
+    let x = clamp(x_raw as u32, 0, envmap_width - 1);
+    let y = clamp(y_raw as u32, 0, envmap_height - 1);
+
+    let bg_pixel: &Rgb<u8> = background.get_pixel(x, y);
+    Pixel::new(
+        bg_pixel.0[0] as f32,
+        bg_pixel.0[1] as f32,
+        bg_pixel.0[2] as f32,
+    ) / 255.0
+}
+
+fn render(shapes: &[Box<dyn Shape>], lights: &[Light], background: &RgbImage) -> FrameBuffer {
     let fov: f32 = 80.0;
 
     let mut framebuffer = FrameBuffer {
-        width: 1024,
-        height: 768,
-        //width: 4096,
-        //height: 3072,
+        width: 1024 * 4,
+        height: 768 * 4,
         buffer: Vec::<Vector3<f32>>::with_capacity(1024 * 768),
     };
 
+    let mut stdout = stdout();
     for j in 0..framebuffer.height {
+        print!("\rrendering {}%....", (j * 100) / framebuffer.height);
+        stdout.flush().unwrap();
         for i in 0..framebuffer.width {
             let ray_dir_x = (2.0 * (i as f32 + 0.5) / framebuffer.width as f32 - 1.0)
                 * (fov / 2.0).tan()
@@ -161,13 +198,18 @@ fn render(shapes: &[Box<dyn Shape>], lights: &[Light]) -> FrameBuffer {
 
             let ray_dir = Vector3::new(ray_dir_x, ray_dir_y, -1.0).normalize();
 
-            framebuffer
-                .buffer
-                .push(cast_ray(Vector3::zero(), ray_dir, shapes, lights, 0));
+            framebuffer.buffer.push(cast_ray(
+                Vector3::zero(),
+                ray_dir,
+                shapes,
+                lights,
+                background,
+                0,
+            ));
         }
     }
 
-    println!("rendering done");
+    println!("\rrendering done   ");
 
     framebuffer
 }
@@ -175,7 +217,7 @@ fn render(shapes: &[Box<dyn Shape>], lights: &[Light]) -> FrameBuffer {
 fn main() {
     let scene = Scene::from_file(&get_scene_file());
 
-    let framebuffer = render(&scene.shapes, &scene.lights);
+    let framebuffer = render(&scene.shapes, &scene.lights, &scene.background);
 
     export_to_ppm(&framebuffer, &get_out_file()).expect("failed to export to ppm");
 }
