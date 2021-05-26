@@ -8,17 +8,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::light::Light;
 use crate::shapes::material::Material;
+use crate::wavefront::Obj;
 
 use crate::shapes::checkboard_disk::CheckBoardDisk;
 use crate::shapes::disk::Disk;
 use crate::shapes::plane::Plane;
+use crate::shapes::polygon::Polygon;
 use crate::shapes::shape::Shape;
 use crate::shapes::sphere::Sphere;
 
 pub struct Scene {
     pub materials: HashMap<String, Material>,
     pub lights: Vec<Light>,
-    pub shapes: Vec<Box<dyn Shape>>,
+    pub shapes: Vec<Box<dyn Shape + Sync>>,
     pub background: RgbImage,
 }
 
@@ -31,16 +33,19 @@ impl Scene {
             .spheres
             .iter()
             .map(|sphere| {
-                Box::new(sphere.clone().into_sphere(&scene_json.materials)) as Box<dyn Shape>
+                Box::new(sphere.clone().into_sphere(&scene_json.materials)) as Box<dyn Shape + Sync>
             })
             .chain(scene_json.shapes.planes.iter().map(|plane| {
-                Box::new(plane.clone().into_plane(&scene_json.materials)) as Box<dyn Shape>
+                Box::new(plane.clone().into_plane(&scene_json.materials)) as Box<dyn Shape + Sync>
             }))
             .chain(scene_json.shapes.disks.iter().map(|disk| {
-                Box::new(disk.clone().into_disk(&scene_json.materials)) as Box<dyn Shape>
+                Box::new(disk.clone().into_disk(&scene_json.materials)) as Box<dyn Shape + Sync>
             }))
             .chain(scene_json.shapes.checkboard_disks.iter().map(|disk| {
-                Box::new(disk.clone().into_checkboard_disk(&scene_json.materials)) as Box<dyn Shape>
+                Box::new(disk.clone().into_checkboard_disk(&scene_json.materials)) as Box<dyn Shape + Sync>
+            }))
+            .chain(scene_json.shapes.polygons.iter().map(|polygon| {
+                Box::new(polygon.clone().into_polygon(&scene_json.materials)) as Box<dyn Shape + Sync>
             }))
             .collect();
         println!("importing background: [file={}]", file_path);
@@ -86,6 +91,8 @@ struct ShapesJson {
     pub planes: Vec<PlaneJson>,
     pub disks: Vec<DiskJson>,
     pub checkboard_disks: Vec<CheckBoardDiskJson>,
+    pub polygons: Vec<PolygonJson>,
+    pub objs: Vec<ObjJson>,
 }
 
 type MaterialJson = Material;
@@ -124,12 +131,49 @@ struct CheckBoardDiskJson {
     material2: String,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+struct PolygonJson {
+    vertex_0: Vector3<f32>,
+    vertex_1: Vector3<f32>,
+    vertex_2: Vector3<f32>,
+    material: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct ObjJson {
+    wavefront: String,
+    material: String,
+}
+
 impl SceneJson {
     fn from_file(file_path: &str) -> SceneJson {
         let file = File::open(file_path)
             .unwrap_or_else(|err| panic!("failed to open file: {}: \"{}\"", file_path, err));
-        serde_json::from_reader(file)
-            .unwrap_or_else(|err| panic!("failed to parse file: {}: {}", file_path, err))
+        let mut scene_json: SceneJson = serde_json::from_reader(file)
+            .unwrap_or_else(|err| panic!("failed to parse file: {}: {}", file_path, err));
+        scene_json.import_objs();
+        scene_json
+    }
+
+    fn import_objs(&mut self) {
+        self.shapes.polygons.extend(
+            self.shapes
+                .objs
+                .iter()
+                .map(|obj_json| {
+                    let obj = Obj::from_file(&obj_json.wavefront).expect("failed import obj file");
+                    obj.faces
+                        .iter()
+                        .map(|face| PolygonJson {
+                            vertex_0: obj.vertexes[face[0] - 1],
+                            vertex_1: obj.vertexes[face[1] - 1],
+                            vertex_2: obj.vertexes[face[2] - 1],
+                            material: obj_json.material.clone(),
+                        })
+                        .collect::<Vec<PolygonJson>>()
+                })
+                .flatten(),
+        );
     }
 }
 
@@ -165,6 +209,17 @@ impl CheckBoardDiskJson {
             self.dist_between_mats,
             materials[&self.material1],
             materials[&self.material2],
+        )
+    }
+}
+
+impl PolygonJson {
+    fn into_polygon(self, materials: &HashMap<String, MaterialJson>) -> Polygon {
+        Polygon::new(
+            self.vertex_0,
+            self.vertex_1,
+            self.vertex_2,
+            materials[&self.material],
         )
     }
 }

@@ -119,42 +119,6 @@
     ],
     "shapes": {
         "spheres": [
-            {
-                "center": {
-                    "x": -3.0,
-                    "y": 0.0,
-                    "z": -16.0
-                },
-                "radius": 2.0,
-                "material": "ivory"
-            },
-            {
-                "center": {
-                    "x": -1.0,
-                    "y": -1.5,
-                    "z": -12.0
-                },
-                "radius": -2.0,
-                "material": "glass"
-            },
-            {
-                "center": {
-                    "x": 1.5,
-                    "y": -0.5,
-                    "z": -18.0
-                },
-                "radius": 3.0,
-                "material": "red_rubber"
-            },
-            {
-                "center": {
-                    "x": 7.0,
-                    "y": 5.0,
-                    "z": -18.0
-                },
-                "radius": 4.0,
-                "material": "mirror"
-            }
         ],
         "planes": [],
         "objs": [
@@ -164,25 +128,27 @@
             }
         ],
         "polygons": [
+            {
+                "vertex_0": {
+                    "x": 1,
+                    "y": 0,
+                    "z": -15
+                },
+                "vertex_1": {
+                    "x": 0,
+                    "y": 1,
+                    "z": -15
+                },
+                "vertex_2": {
+                    "x": 1,
+                    "y": 1,
+                    "z": -15
+                },
+                "material": "red_rubber"
+            }
         ],
         "disks": [],
         "checkboard_disks": [
-            {
-                "center": {
-                    "x": 0.0,
-                    "y": -5.0,
-                    "z": -18.0
-                },
-                "normal": {
-                    "x": 0.0,
-                    "y": 1.0,
-                    "z": 0.0
-                },
-                "radius": 10.0,
-                "dist_between_mats": 1.0,
-                "material1": "checkboard_orange",
-                "material2": "checkboard_white"
-            }
         ]
     },
     "background": "backgrounds/eso0932a.jpg"

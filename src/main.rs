@@ -6,6 +6,7 @@ use std::io::{prelude::*, stdout};
 use cgmath::{dot, BaseFloat, InnerSpace, Vector3};
 use image::{Rgb, RgbImage};
 use num::{clamp, Zero};
+use rayon::prelude::*;
 
 use tinygraph_x::light::Light;
 use tinygraph_x::scene::Scene;
@@ -50,7 +51,7 @@ fn vec_norm<T: BaseFloat>(vec: Vector3<T>) -> T {
 fn scene_intersect(
     orig: Vector3<f32>,
     dir: Vector3<f32>,
-    shapes: &[Box<dyn Shape>],
+    shapes: &[Box<dyn Shape + Sync>],
 ) -> Option<RayHit> {
     // get the sphere with the shortest distance to orig
     shapes
@@ -67,7 +68,7 @@ fn scene_intersect(
 fn cast_ray(
     ray_orig: Vector3<f32>,
     ray_dir: Vector3<f32>,
-    shapes: &[Box<dyn Shape>],
+    shapes: &[Box<dyn Shape + Sync>],
     lights: &[Light],
     background: &RgbImage,
     depth: usize,
@@ -174,44 +175,48 @@ fn get_background_pixel(ray_dir: Vector3<f32>, background: &RgbImage) -> Pixel {
     ) / 255.0
 }
 
-fn render(shapes: &[Box<dyn Shape>], lights: &[Light], background: &RgbImage) -> FrameBuffer {
-    let fov: f32 = 80.0;
+fn render(shapes: &[Box<dyn Shape + Sync>], lights: &[Light], background: &RgbImage) -> FrameBuffer {
+    let width = 1024 * 1;
+    let height = 728 * 1;
 
-    let mut framebuffer = FrameBuffer {
-        width: 1024 * 4,
-        height: 768 * 4,
-        buffer: Vec::<Vector3<f32>>::with_capacity(1024 * 768),
+    let framebuffer = FrameBuffer {
+        width,
+        height,
+        buffer: (0..height)
+            .into_par_iter()
+            .map(|y| render_line(y, height, width, shapes, lights, background))
+            .flatten()
+            .collect(),
     };
-
-    let mut stdout = stdout();
-    for j in 0..framebuffer.height {
-        print!("\rrendering {}%....", (j * 100) / framebuffer.height);
-        stdout.flush().unwrap();
-        for i in 0..framebuffer.width {
-            let ray_dir_x = (2.0 * (i as f32 + 0.5) / framebuffer.width as f32 - 1.0)
-                * (fov / 2.0).tan()
-                * framebuffer.width as f32
-                / framebuffer.height as f32;
-
-            let ray_dir_y =
-                -(2.0 * (j as f32 + 0.5) / framebuffer.height as f32 - 1.0) * (fov / 2.0).tan();
-
-            let ray_dir = Vector3::new(ray_dir_x, ray_dir_y, -1.0).normalize();
-
-            framebuffer.buffer.push(cast_ray(
-                Vector3::zero(),
-                ray_dir,
-                shapes,
-                lights,
-                background,
-                0,
-            ));
-        }
-    }
 
     println!("\rrendering done   ");
 
     framebuffer
+}
+
+fn render_line(
+    y: usize,
+    height: usize,
+    width: usize,
+    shapes: &[Box<dyn Shape + Sync>],
+    lights: &[Light],
+    background: &RgbImage,
+) -> Vec<Pixel> {
+    let fov: f32 = 80.0;
+
+    (0..width)
+        .map(|x| {
+            let ray_dir_x =
+                (2.0 * (x as f32 + 0.5) / width as f32 - 1.0) * (fov / 2.0).tan() * width as f32
+                    / height as f32;
+
+            let ray_dir_y = -(2.0 * (y as f32 + 0.5) / height as f32 - 1.0) * (fov / 2.0).tan();
+
+            let ray_dir = Vector3::new(ray_dir_x, ray_dir_y, -1.0).normalize();
+
+            cast_ray(Vector3::zero(), ray_dir, shapes, lights, background, 0)
+        })
+        .collect()
 }
 
 fn main() {
