@@ -8,3 +8,5 @@ will implement the `Shape` trait
 ### add bounding boxes
 calc the bounding box at mesh creation
 
+## refacto
+move render, cast_ray... to the scene class
