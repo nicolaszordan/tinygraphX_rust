@@ -1,7 +1,7 @@
 use std::env;
 use std::f32::consts::PI;
 use std::fs::File;
-use std::io::{prelude::*, stdout};
+use std::io::prelude::*;
 
 use cgmath::{dot, BaseFloat, InnerSpace, Vector3};
 use image::{Rgb, RgbImage};
