@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::light::Light;
 use crate::shapes::material::Material;
-use crate::wavefront::Obj;
 
 use crate::shapes::checkboard_disk::CheckBoardDisk;
 use crate::shapes::disk::Disk;
+use crate::shapes::mesh::Mesh;
 use crate::shapes::plane::Plane;
 use crate::shapes::polygon::Polygon;
 use crate::shapes::shape::Shape;
@@ -42,10 +42,15 @@ impl Scene {
                 Box::new(disk.clone().into_disk(&scene_json.materials)) as Box<dyn Shape + Sync>
             }))
             .chain(scene_json.shapes.checkboard_disks.iter().map(|disk| {
-                Box::new(disk.clone().into_checkboard_disk(&scene_json.materials)) as Box<dyn Shape + Sync>
+                Box::new(disk.clone().into_checkboard_disk(&scene_json.materials))
+                    as Box<dyn Shape + Sync>
             }))
             .chain(scene_json.shapes.polygons.iter().map(|polygon| {
-                Box::new(polygon.clone().into_polygon(&scene_json.materials)) as Box<dyn Shape + Sync>
+                Box::new(polygon.clone().into_polygon(&scene_json.materials))
+                    as Box<dyn Shape + Sync>
+            }))
+            .chain(scene_json.shapes.objs.iter().map(|obj| {
+                Box::new(obj.clone().into_mesh(&scene_json.materials)) as Box<dyn Shape + Sync>
             }))
             .collect();
         println!("importing background: [file={}]", file_path);
@@ -149,31 +154,8 @@ impl SceneJson {
     fn from_file(file_path: &str) -> SceneJson {
         let file = File::open(file_path)
             .unwrap_or_else(|err| panic!("failed to open file: {}: \"{}\"", file_path, err));
-        let mut scene_json: SceneJson = serde_json::from_reader(file)
-            .unwrap_or_else(|err| panic!("failed to parse file: {}: {}", file_path, err));
-        scene_json.import_objs();
-        scene_json
-    }
-
-    fn import_objs(&mut self) {
-        self.shapes.polygons.extend(
-            self.shapes
-                .objs
-                .iter()
-                .map(|obj_json| {
-                    let obj = Obj::from_file(&obj_json.wavefront).expect("failed import obj file");
-                    obj.faces
-                        .iter()
-                        .map(|face| PolygonJson {
-                            vertex_0: obj.vertexes[face[0] - 1],
-                            vertex_1: obj.vertexes[face[1] - 1],
-                            vertex_2: obj.vertexes[face[2] - 1],
-                            material: obj_json.material.clone(),
-                        })
-                        .collect::<Vec<PolygonJson>>()
-                })
-                .flatten(),
-        );
+        serde_json::from_reader(file)
+            .unwrap_or_else(|err| panic!("failed to parse file: {}: {}", file_path, err))
     }
 }
 
@@ -221,5 +203,12 @@ impl PolygonJson {
             self.vertex_2,
             materials[&self.material],
         )
+    }
+}
+
+impl ObjJson {
+    fn into_mesh(self, materials: &HashMap<String, MaterialJson>) -> Mesh {
+        Mesh::from_wavefront_file(&self.wavefront, &materials[&self.material])
+            .expect("failed to import mesh")
     }
 }

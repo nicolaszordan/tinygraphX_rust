@@ -14,3 +14,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 image = "0.23"
 rayon = "1.0"
+
+# debug info in release for profiling
+[profile.release]
+debug = 1

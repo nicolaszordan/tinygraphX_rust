@@ -160,7 +160,7 @@
         "objs": [
             {
                 "wavefront": "objs/duck.obj",
-                "material": "ivory"
+                "material": "glass"
             }
         ],
         "polygons": [
@@ -185,5 +185,5 @@
             }
         ]
     },
-    "background": "backgrounds/eso0932a.jpg"
+    "background": "backgrounds/background.jpg"
 }

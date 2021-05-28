@@ -53,7 +53,7 @@ fn scene_intersect(
     dir: Vector3<f32>,
     shapes: &[Box<dyn Shape + Sync>],
 ) -> Option<RayHit> {
-    // get the sphere with the shortest distance to orig
+    // get the shape with the shortest distance to orig
     shapes
         .iter()
         .filter_map(|shape| shape.ray_intersect(orig, dir))
@@ -175,9 +175,15 @@ fn get_background_pixel(ray_dir: Vector3<f32>, background: &RgbImage) -> Pixel {
     ) / 255.0
 }
 
-fn render(shapes: &[Box<dyn Shape + Sync>], lights: &[Light], background: &RgbImage) -> FrameBuffer {
-    let width = 1024 * 1;
-    let height = 728 * 1;
+fn render(
+    shapes: &[Box<dyn Shape + Sync>],
+    lights: &[Light],
+    background: &RgbImage,
+) -> FrameBuffer {
+    let width = 1024 * 4;
+    let height = 728 * 4;
+
+    println!("rendering...");
 
     let framebuffer = FrameBuffer {
         width,
@@ -189,7 +195,7 @@ fn render(shapes: &[Box<dyn Shape + Sync>], lights: &[Light], background: &RgbIm
             .collect(),
     };
 
-    println!("\rrendering done   ");
+    println!("rendering done   ");
 
     framebuffer
 }
@@ -202,7 +208,7 @@ fn render_line(
     lights: &[Light],
     background: &RgbImage,
 ) -> Vec<Pixel> {
-    let fov: f32 = 80.0;
+    let fov: f32 = PI / 2.0;
 
     (0..width)
         .map(|x| {
