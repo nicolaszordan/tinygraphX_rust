@@ -107,25 +107,17 @@ impl Mesh {
     }
 }
 
-pub static mut BB_MISS: u32 = 0;
-pub static mut MESH_MISS: u32 = 0;
-pub static mut MESH_HIT: u32 = 0;
-
 impl Shape for Mesh {
-
     fn ray_intersect(&self, ray_orig: Vector3<f32>, ray_dir: Vector3<f32>) -> Option<RayHit> {
         // check intersect with bounding box
         if !self.is_ray_intersecting_with_bounding_box(ray_orig, ray_dir) {
-            unsafe {
-                BB_MISS += 1;
-            }
             return None;
         }
 
         // check intersect with polygons
         self.polygons
             .iter()
-            .filter_map(|shape| shape.ray_intersect(ray_orig, ray_dir))
+            .filter_map(|polygon| polygon.ray_intersect(ray_orig, ray_dir))
             .min_by(|ray_hit_1, ray_hit_2| {
                 ray_hit_1
                     .hit_dist
