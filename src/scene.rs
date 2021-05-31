@@ -8,6 +8,7 @@ use image::{Rgb, RgbImage};
 use num::Zero;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use indicatif::{ParallelProgressIterator};
 
 use crate::light::Light;
 use crate::shapes::material::Material;
@@ -112,6 +113,7 @@ impl Scene {
             height: self.frame_height,
             buffer: (0..self.frame_height)
                 .into_par_iter()
+                .progress()
                 .map(|y| self.render_line(y))
                 .flatten()
                 .collect(),
