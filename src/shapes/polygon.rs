@@ -11,6 +11,8 @@ pub struct Polygon {
     vertex_2: Vector3<f32>,
 
     normal: Vector3<f32>,
+    v0v1: Vector3<f32>,
+    v0v2: Vector3<f32>,
 
     material: Material,
 }
@@ -27,6 +29,8 @@ impl Polygon {
             vertex_1,
             vertex_2,
             normal: (vertex_0 - vertex_1).cross(vertex_2 - vertex_1),
+            v0v1: vertex_1 - vertex_0,
+            v0v2: vertex_2 - vertex_0,
             material,
         }
     }
@@ -34,10 +38,8 @@ impl Polygon {
 
 impl Shape for Polygon {
     fn ray_intersect(&self, ray_orig: Vector3<f32>, ray_dir: Vector3<f32>) -> Option<RayHit> {
-        let v0v1 = self.vertex_1 - self.vertex_0;
-        let v0v2 = self.vertex_2 - self.vertex_0;
-        let pvec = ray_dir.cross(v0v2);
-        let det = cgmath::dot(v0v1, pvec);
+        let pvec = ray_dir.cross(self.v0v2);
+        let det = self.v0v1.dot(pvec);
         if det.abs() < 1e-3 {
             return None;
         }
@@ -51,7 +53,7 @@ impl Shape for Polygon {
             return None;
         }
 
-        let qvec = tvec.cross(v0v1);
+        let qvec = tvec.cross(self.v0v1);
         let v = ray_dir.dot(qvec) * inv_det;
         if v < 0.0 || v + hit_dist > 1.0 {
             return None;
