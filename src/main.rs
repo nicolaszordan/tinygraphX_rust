@@ -35,7 +35,7 @@ fn export_to_ppm(framebuffer: &FrameBuffer, outfile: &str) -> std::io::Result<()
 
     file.write_all(buffer.as_slice())?;
 
-    println!("exporting done");
+    println!("exporting done!");
 
     Ok(())
 }

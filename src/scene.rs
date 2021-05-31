@@ -5,10 +5,10 @@ use std::fs::File;
 use cgmath::{InnerSpace, Vector3};
 use image::io::Reader as ImageReader;
 use image::{Rgb, RgbImage};
+use indicatif::ParallelProgressIterator;
 use num::Zero;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use indicatif::{ParallelProgressIterator};
 
 use crate::light::Light;
 use crate::shapes::material::Material;
@@ -72,7 +72,7 @@ impl Scene {
             .collect();
         println!("importing scene done!");
 
-        println!("importing background: [file={}]", file_path);
+        println!("importing background: [file={}]", scene_json.background);
         let background = Scene::create_background(&scene_json.background);
         println!("importing background done!");
 
@@ -149,60 +149,12 @@ impl Scene {
 
         match self.scene_intersect(ray) {
             Some(ray_hit) => {
-                // calc reflect
-                let reflect_dir = reflect(ray.direction, ray_hit.hit_normal);
-                let reflect_orig = if reflect_dir.dot(ray_hit.hit_normal) < 0.0 {
-                    ray_hit.hit_point - ray_hit.hit_normal * 1e-3
-                } else {
-                    ray_hit.hit_point + ray_hit.hit_normal * 1e-3
-                };
-                let reflect_ray = Ray::new(reflect_orig, reflect_dir);
-                let reflect_color = self.cast_ray(&reflect_ray, depth + 1);
+                let reflect_color = self.calc_reflect(ray, &ray_hit, depth);
 
-                // calc refract
-                let refract_dir = refract(
-                    ray.direction,
-                    ray_hit.hit_normal,
-                    ray_hit.material.refractive_index,
-                );
-                let refract_orig = if refract_dir.dot(ray_hit.hit_normal) < 0.0 {
-                    ray_hit.hit_point - ray_hit.hit_normal * 1e-3
-                } else {
-                    ray_hit.hit_point + ray_hit.hit_normal * 1e-3
-                };
-                let refract_ray = Ray::new(refract_orig, refract_dir);
-                let refract_color = self.cast_ray(&refract_ray, depth + 1);
+                let refract_color = self.calc_refract(ray, &ray_hit, depth);
 
-                let (diffuse_light_intensity, specular_light_intensity) = self
-                    .lights
-                    .iter()
-                    .map(|light| {
-                        let light_dir = (light.position - ray_hit.hit_point).normalize();
-                        let light_distance = (light.position - ray_hit.hit_point).magnitude();
-
-                        let shadow_orig = if light_dir.dot(ray_hit.hit_normal) < 0.0 {
-                            ray_hit.hit_point - ray_hit.hit_normal * 1e-3
-                        } else {
-                            ray_hit.hit_point + ray_hit.hit_normal * 1e-3
-                        };
-
-                        let shadow_ray = Ray::new(shadow_orig, light_dir);
-
-                        if let Some(shadow_hit) = self.scene_intersect(&shadow_ray) {
-                            if (shadow_hit.hit_point - shadow_orig).magnitude() < light_distance {
-                                return (0.0, 0.0);
-                            }
-                        }
-
-                        (
-                            light.intensity * 0.0f32.max(light_dir.dot(ray_hit.hit_normal)),
-                            light.intensity
-                                * 0.0f32
-                                    .max(reflect(light_dir, ray_hit.hit_normal).dot(ray.direction))
-                                    .powf(ray_hit.material.specular_exponent),
-                        )
-                    })
-                    .fold((0.0, 0.0), |acc, x| (acc.0 + x.0, acc.1 + x.1)); // sum of both intensities
+                let (diffuse_light_intensity, specular_light_intensity) =
+                    self.calc_lights(ray, &ray_hit);
 
                 ray_hit.material.diffuse_color
                     * diffuse_light_intensity
@@ -250,6 +202,65 @@ impl Scene {
             bg_pixel.0[1] as f32,
             bg_pixel.0[2] as f32,
         ) / 255.0
+    }
+
+    fn calc_lights(&self, ray: &Ray, ray_hit: &RayHit) -> (f32, f32) {
+        self.lights
+            .iter()
+            .map(|light| {
+                let light_dir = (light.position - ray_hit.hit_point).normalize();
+                let light_distance = (light.position - ray_hit.hit_point).magnitude();
+
+                let shadow_orig = if light_dir.dot(ray_hit.hit_normal) < 0.0 {
+                    ray_hit.hit_point - ray_hit.hit_normal * 1e-3
+                } else {
+                    ray_hit.hit_point + ray_hit.hit_normal * 1e-3
+                };
+                let shadow_ray = Ray::new(shadow_orig, light_dir);
+
+                if let Some(shadow_hit) = self.scene_intersect(&shadow_ray) {
+                    if (shadow_hit.hit_point - shadow_orig).magnitude() < light_distance {
+                        return (0.0, 0.0);
+                    }
+                }
+
+                (
+                    // diffuse
+                    light.intensity * 0.0f32.max(light_dir.dot(ray_hit.hit_normal)),
+                    // specular
+                    light.intensity
+                        * 0.0f32
+                            .max(reflect(light_dir, ray_hit.hit_normal).dot(ray.direction))
+                            .powf(ray_hit.material.specular_exponent),
+                )
+            })
+            .fold((0.0, 0.0), |acc, x| (acc.0 + x.0, acc.1 + x.1))
+    }
+
+    fn calc_reflect(&self, ray: &Ray, ray_hit: &RayHit, depth: usize) -> Pixel {
+        let reflect_dir = reflect(ray.direction, ray_hit.hit_normal);
+        let reflect_orig = if reflect_dir.dot(ray_hit.hit_normal) < 0.0 {
+            ray_hit.hit_point - ray_hit.hit_normal * 1e-3
+        } else {
+            ray_hit.hit_point + ray_hit.hit_normal * 1e-3
+        };
+        let reflect_ray = Ray::new(reflect_orig, reflect_dir);
+        self.cast_ray(&reflect_ray, depth + 1)
+    }
+
+    fn calc_refract(&self, ray: &Ray, ray_hit: &RayHit, depth: usize) -> Pixel {
+        let refract_dir = refract(
+            ray.direction,
+            ray_hit.hit_normal,
+            ray_hit.material.refractive_index,
+        );
+        let refract_orig = if refract_dir.dot(ray_hit.hit_normal) < 0.0 {
+            ray_hit.hit_point - ray_hit.hit_normal * 1e-3
+        } else {
+            ray_hit.hit_point + ray_hit.hit_normal * 1e-3
+        };
+        let refract_ray = Ray::new(refract_orig, refract_dir);
+        self.cast_ray(&refract_ray, depth + 1)
     }
 }
 
