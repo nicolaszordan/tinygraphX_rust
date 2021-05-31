@@ -49,7 +49,7 @@ impl Shape for Polygon {
         let tvec = ray.origin - self.vertex_0;
 
         let hit_dist = cgmath::dot(tvec, pvec) * inv_det;
-        if hit_dist < 0.0 || hit_dist > 1.0 {
+        if !(0.0..=1.0).contains(&hit_dist) {
             return None;
         }
 

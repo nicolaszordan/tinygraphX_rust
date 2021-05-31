@@ -93,11 +93,7 @@ impl Mesh {
             .min(ty_min.max(ty_max))
             .min(tz_min.max(tz_max));
 
-        if tmax < 0.0 || tmin > tmax {
-            false
-        } else {
-            true
-        }
+        !(tmax < 0.0 || tmin > tmax)
     }
 }
 

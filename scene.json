@@ -185,5 +185,9 @@
             }
         ]
     },
-    "background": "backgrounds/background.jpg"
+    "background": "backgrounds/background.jpg",
+    "frame_width": 1024,
+    "frame_height": 728,
+    "fov_in_degrees": 80,
+    "max_reflect_depth": 4
 }
