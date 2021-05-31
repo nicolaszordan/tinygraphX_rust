@@ -1,5 +1,5 @@
 use crate::shapes::material::Material;
-use crate::shapes::shape::{RayHit, Shape};
+use crate::shapes::shape::{Ray, RayHit, Shape};
 
 use cgmath::Vector3;
 use serde::{Deserialize, Serialize};
@@ -31,18 +31,18 @@ impl Disk {
 }
 
 impl Shape for Disk {
-    fn ray_intersect(&self, ray_orig: Vector3<f32>, ray_dir: Vector3<f32>) -> Option<RayHit> {
-        let denom = cgmath::dot(self.normal, ray_dir);
+    fn ray_intersect(&self, ray: &Ray) -> Option<RayHit> {
+        let denom = cgmath::dot(self.normal, ray.direction);
         if denom.abs() < 1e-3 {
             // ray is considered parallel to the disk
             None
         } else {
-            let point_to_ray = self.center - ray_orig;
+            let point_to_ray = self.center - ray.origin;
             let hit_dist = cgmath::dot(point_to_ray, self.normal) / denom;
             if hit_dist < 0.0 {
                 return None;
             }
-            let hit_point = ray_orig + ray_dir * hit_dist;
+            let hit_point = ray.origin + ray.direction * hit_dist;
             let hit_to_center = hit_point - self.center;
             let d2 = cgmath::dot(hit_to_center, hit_to_center);
             if d2 <= self.radius_squared {

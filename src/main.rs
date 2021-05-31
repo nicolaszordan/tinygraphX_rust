@@ -10,7 +10,7 @@ use rayon::prelude::*;
 
 use tinygraph_x::light::Light;
 use tinygraph_x::scene::Scene;
-use tinygraph_x::shapes::shape::{RayHit, Shape};
+use tinygraph_x::shapes::shape::{Ray, RayHit, Shape};
 
 type Pixel = Vector3<f32>;
 
@@ -48,15 +48,11 @@ fn vec_norm<T: BaseFloat>(vec: Vector3<T>) -> T {
     (vec.x * vec.x + vec.y * vec.y + vec.z * vec.z).sqrt()
 }
 
-fn scene_intersect(
-    orig: Vector3<f32>,
-    dir: Vector3<f32>,
-    shapes: &[Box<dyn Shape + Sync>],
-) -> Option<RayHit> {
+fn scene_intersect(ray: &Ray, shapes: &[Box<dyn Shape + Sync>]) -> Option<RayHit> {
     // get the shape with the shortest distance to orig
     shapes
         .iter()
-        .filter_map(|shape| shape.ray_intersect(orig, dir))
+        .filter_map(|shape| shape.ray_intersect(ray))
         .min_by(|ray_hit_1, ray_hit_2| {
             ray_hit_1
                 .hit_dist
@@ -66,38 +62,31 @@ fn scene_intersect(
 }
 
 fn cast_ray(
-    ray_orig: Vector3<f32>,
-    ray_dir: Vector3<f32>,
+    ray: &Ray,
     shapes: &[Box<dyn Shape + Sync>],
     lights: &[Light],
     background: &RgbImage,
     depth: usize,
 ) -> Pixel {
     if depth > 10 {
-        return get_background_pixel(ray_dir, background);
+        return get_background_pixel(ray.direction, background);
     }
 
-    match scene_intersect(ray_orig, ray_dir, shapes) {
+    match scene_intersect(ray, shapes) {
         Some(ray_hit) => {
             // calc reflect
-            let reflect_dir = reflect(ray_dir, ray_hit.hit_normal);
+            let reflect_dir = reflect(ray.direction, ray_hit.hit_normal);
             let reflect_orig = if dot(reflect_dir, ray_hit.hit_normal) < 0.0 {
                 ray_hit.hit_point - ray_hit.hit_normal * 1e-3
             } else {
                 ray_hit.hit_point + ray_hit.hit_normal * 1e-3
             };
-            let reflect_color = cast_ray(
-                reflect_orig,
-                reflect_dir,
-                shapes,
-                lights,
-                background,
-                depth + 1,
-            );
+            let reflect_ray = Ray::new(reflect_orig, reflect_dir);
+            let reflect_color = cast_ray(&reflect_ray, shapes, lights, background, depth + 1);
 
             // calc refract
             let refract_dir = refract(
-                ray_dir,
+                ray.direction,
                 ray_hit.hit_normal,
                 ray_hit.material.refractive_index,
             );
@@ -106,14 +95,8 @@ fn cast_ray(
             } else {
                 ray_hit.hit_point + ray_hit.hit_normal * 1e-3
             };
-            let refract_color = cast_ray(
-                refract_orig,
-                refract_dir,
-                shapes,
-                lights,
-                background,
-                depth + 1,
-            );
+            let refract_ray = Ray::new(refract_orig, refract_dir);
+            let refract_color = cast_ray(&refract_ray, shapes, lights, background, depth + 1);
 
             let (diffuse_light_intensity, specular_light_intensity) = lights
                 .iter()
@@ -127,7 +110,9 @@ fn cast_ray(
                         ray_hit.hit_point + ray_hit.hit_normal * 1e-3
                     };
 
-                    if let Some(shadow_hit) = scene_intersect(shadow_orig, light_dir, shapes) {
+                    let shadow_ray = Ray::new(shadow_orig, light_dir);
+
+                    if let Some(shadow_hit) = scene_intersect(&shadow_ray, shapes) {
                         if vec_norm(shadow_hit.hit_point - shadow_orig) < light_distance {
                             return (0.0, 0.0);
                         }
@@ -137,7 +122,7 @@ fn cast_ray(
                         light.intensity * 0.0f32.max(dot(light_dir, ray_hit.hit_normal)),
                         light.intensity
                             * 0.0f32
-                                .max(dot(reflect(light_dir, ray_hit.hit_normal), ray_dir))
+                                .max(dot(reflect(light_dir, ray_hit.hit_normal), ray.direction))
                                 .powf(ray_hit.material.specular_exponent),
                     )
                 })
@@ -150,7 +135,7 @@ fn cast_ray(
                 + reflect_color * ray_hit.material.albedo[2]
                 + refract_color * ray_hit.material.albedo[3]
         }
-        None => get_background_pixel(ray_dir, background),
+        None => get_background_pixel(ray.direction, background),
     }
 }
 
@@ -208,7 +193,7 @@ fn render_line(
     lights: &[Light],
     background: &RgbImage,
 ) -> Vec<Pixel> {
-    let fov: f32 = PI / 2.0;
+    let fov: f32 = -PI / 2.0;
 
     (0..width)
         .map(|x| {
@@ -219,8 +204,9 @@ fn render_line(
             let ray_dir_y = -(2.0 * (y as f32 + 0.5) / height as f32 - 1.0) * (fov / 2.0).tan();
 
             let ray_dir = Vector3::new(ray_dir_x, ray_dir_y, -1.0).normalize();
+            let ray = Ray::new(Vector3::zero(), ray_dir);
 
-            cast_ray(Vector3::zero(), ray_dir, shapes, lights, background, 0)
+            cast_ray(&ray, shapes, lights, background, 0)
         })
         .collect()
 }

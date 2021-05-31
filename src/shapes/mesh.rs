@@ -1,6 +1,6 @@
 use crate::shapes::material::Material;
 use crate::shapes::polygon::Polygon;
-use crate::shapes::shape::{RayHit, Shape};
+use crate::shapes::shape::{Ray, RayHit, Shape};
 use crate::wavefront::Obj;
 
 use cgmath::Vector3;
@@ -76,19 +76,13 @@ impl Mesh {
         )
     }
 
-    fn is_ray_intersecting_with_bounding_box(
-        &self,
-        ray_orig: Vector3<f32>,
-        ray_dir: Vector3<f32>,
-    ) -> bool {
-        let inv_dir = 1.0 / ray_dir;
-
-        let tx_min = (self.bounding_min.x - ray_orig.x) * inv_dir.x;
-        let tx_max = (self.bounding_max.x - ray_orig.x) * inv_dir.x;
-        let ty_min = (self.bounding_min.y - ray_orig.y) * inv_dir.y;
-        let ty_max = (self.bounding_max.y - ray_orig.y) * inv_dir.y;
-        let tz_min = (self.bounding_min.z - ray_orig.z) * inv_dir.z;
-        let tz_max = (self.bounding_max.z - ray_orig.z) * inv_dir.z;
+    fn is_ray_intersecting_with_bounding_box(&self, ray: &Ray) -> bool {
+        let tx_min = (self.bounding_min.x - ray.origin.x) * ray.inv_direction.x;
+        let tx_max = (self.bounding_max.x - ray.origin.x) * ray.inv_direction.x;
+        let ty_min = (self.bounding_min.y - ray.origin.y) * ray.inv_direction.y;
+        let ty_max = (self.bounding_max.y - ray.origin.y) * ray.inv_direction.y;
+        let tz_min = (self.bounding_min.z - ray.origin.z) * ray.inv_direction.z;
+        let tz_max = (self.bounding_max.z - ray.origin.z) * ray.inv_direction.z;
 
         let tmin = tx_min
             .min(tx_max)
@@ -108,16 +102,16 @@ impl Mesh {
 }
 
 impl Shape for Mesh {
-    fn ray_intersect(&self, ray_orig: Vector3<f32>, ray_dir: Vector3<f32>) -> Option<RayHit> {
+    fn ray_intersect(&self, ray: &Ray) -> Option<RayHit> {
         // check intersect with bounding box
-        if !self.is_ray_intersecting_with_bounding_box(ray_orig, ray_dir) {
+        if !self.is_ray_intersecting_with_bounding_box(ray) {
             return None;
         }
 
         // check intersect with polygons
         self.polygons
             .iter()
-            .filter_map(|polygon| polygon.ray_intersect(ray_orig, ray_dir))
+            .filter_map(|polygon| polygon.ray_intersect(ray))
             .min_by(|ray_hit_1, ray_hit_2| {
                 ray_hit_1
                     .hit_dist

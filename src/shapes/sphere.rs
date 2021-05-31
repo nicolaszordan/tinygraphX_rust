@@ -1,5 +1,5 @@
 use crate::shapes::material::Material;
-use crate::shapes::shape::{RayHit, Shape};
+use crate::shapes::shape::{Ray, RayHit, Shape};
 
 use cgmath::{InnerSpace, Vector3};
 use serde::{Deserialize, Serialize};
@@ -22,12 +22,12 @@ impl Sphere {
 }
 
 impl Shape for Sphere {
-    fn ray_intersect(&self, ray_orig: Vector3<f32>, ray_dir: Vector3<f32>) -> Option<RayHit> {
+    fn ray_intersect(&self, ray: &Ray) -> Option<RayHit> {
         // calc vector sphere_center -> ray_orig
-        let vec_center_to_ray = self.center - ray_orig;
+        let vec_center_to_ray = self.center - ray.origin;
 
         // project sphere center on ray
-        let tca = cgmath::dot(vec_center_to_ray, ray_dir);
+        let tca = cgmath::dot(vec_center_to_ray, ray.direction);
         let d2 = cgmath::dot(vec_center_to_ray, vec_center_to_ray) - tca * tca;
         if d2 > self.radius * self.radius {
             return None;
@@ -41,7 +41,7 @@ impl Shape for Sphere {
         if t0 < 0.0 {
             None
         } else {
-            let hit_point = ray_orig + ray_dir * t0;
+            let hit_point = ray.origin + ray.direction * t0;
             Some(RayHit {
                 hit_dist: t0,
                 hit_point,

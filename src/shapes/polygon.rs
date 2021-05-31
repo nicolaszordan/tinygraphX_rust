@@ -1,5 +1,5 @@
 use crate::shapes::material::Material;
-use crate::shapes::shape::{RayHit, Shape};
+use crate::shapes::shape::{Ray, RayHit, Shape};
 
 use cgmath::{InnerSpace, Vector3};
 use serde::{Deserialize, Serialize};
@@ -37,8 +37,8 @@ impl Polygon {
 }
 
 impl Shape for Polygon {
-    fn ray_intersect(&self, ray_orig: Vector3<f32>, ray_dir: Vector3<f32>) -> Option<RayHit> {
-        let pvec = ray_dir.cross(self.v0v2);
+    fn ray_intersect(&self, ray: &Ray) -> Option<RayHit> {
+        let pvec = ray.direction.cross(self.v0v2);
         let det = self.v0v1.dot(pvec);
         if det.abs() < 1e-3 {
             return None;
@@ -46,7 +46,7 @@ impl Shape for Polygon {
 
         let inv_det = 1.0 / det;
 
-        let tvec = ray_orig - self.vertex_0;
+        let tvec = ray.origin - self.vertex_0;
 
         let hit_dist = cgmath::dot(tvec, pvec) * inv_det;
         if hit_dist < 0.0 || hit_dist > 1.0 {
@@ -54,14 +54,14 @@ impl Shape for Polygon {
         }
 
         let qvec = tvec.cross(self.v0v1);
-        let v = ray_dir.dot(qvec) * inv_det;
+        let v = ray.direction.dot(qvec) * inv_det;
         if v < 0.0 || v + hit_dist > 1.0 {
             return None;
         }
 
         Some(RayHit {
             hit_dist,
-            hit_point: ray_orig + ray_dir * hit_dist,
+            hit_point: ray.origin + ray.direction * hit_dist,
             hit_normal: self.normal,
             material: self.material,
         })

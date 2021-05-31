@@ -1,5 +1,5 @@
 use crate::shapes::material::Material;
-use crate::shapes::shape::{RayHit, Shape};
+use crate::shapes::shape::{Ray, RayHit, Shape};
 
 use cgmath::Vector3;
 use serde::{Deserialize, Serialize};
@@ -22,15 +22,15 @@ impl Plane {
 }
 
 impl Shape for Plane {
-    fn ray_intersect(&self, ray_orig: Vector3<f32>, ray_dir: Vector3<f32>) -> Option<RayHit> {
-        let denom = cgmath::dot(self.normal, ray_dir);
+    fn ray_intersect(&self, ray: &Ray) -> Option<RayHit> {
+        let denom = cgmath::dot(self.normal, ray.direction);
         if denom.abs() < 1e-3 {
             // ray is considered parallel to the plane
             None
         } else {
-            let point_to_ray = self.point - ray_orig;
+            let point_to_ray = self.point - ray.origin;
             let hit_dist = cgmath::dot(point_to_ray, self.normal) / denom;
-            let hit_point = ray_orig + ray_dir * hit_dist;
+            let hit_point = ray.origin + ray.direction * hit_dist;
             if hit_dist >= 0.0 {
                 Some(RayHit {
                     hit_dist,
@@ -63,28 +63,33 @@ mod test {
         );
         let ray_dir = Vector3::new(0.0, 1.0, 0.0);
         let ray_orig = Vector3::new(0.0, -1.0, 0.0);
+        let ray = Ray::new(ray_orig, ray_dir);
 
-        assert!(plane.ray_intersect(ray_orig, ray_dir).is_some());
+        assert!(plane.ray_intersect(&ray).is_some());
 
         let ray_dir = Vector3::new(0.0, 0.5, 0.0);
         let ray_orig = Vector3::new(0.0, -1.0, 0.0);
+        let ray = Ray::new(ray_orig, ray_dir);
 
-        assert!(plane.ray_intersect(ray_orig, ray_dir).is_some());
+        assert!(plane.ray_intersect(&ray).is_some());
 
         let ray_dir = Vector3::new(0.0, 1.0, 1.0);
         let ray_orig = Vector3::new(0.0, -1.0, 0.0);
+        let ray = Ray::new(ray_orig, ray_dir);
 
-        assert!(plane.ray_intersect(ray_orig, ray_dir).is_some());
+        assert!(plane.ray_intersect(&ray).is_some());
 
         let ray_dir = Vector3::new(-1.0, -1.0, -1.0);
         let ray_orig = Vector3::new(0.0, 1.0, 0.0);
+        let ray = Ray::new(ray_orig, ray_dir);
 
-        assert!(plane.ray_intersect(ray_orig, ray_dir).is_some());
+        assert!(plane.ray_intersect(&ray).is_some());
 
         let ray_dir = Vector3::new(0.0, -1.0, 0.0);
         let ray_orig = Vector3::new(0.0, 1.0, 0.0);
+        let ray = Ray::new(ray_orig, ray_dir);
 
-        assert!(plane.ray_intersect(ray_orig, ray_dir).is_some());
+        assert!(plane.ray_intersect(&ray).is_some());
     }
 
     #[test]
@@ -98,8 +103,9 @@ mod test {
         );
         let ray_dir = Vector3::new(1.0, 0.0, 0.0);
         let ray_orig = Vector3::new(0.0, 1.0, 0.0);
+        let ray = Ray::new(ray_orig, ray_dir);
 
-        assert!(plane.ray_intersect(ray_orig, ray_dir).is_none());
+        assert!(plane.ray_intersect(&ray).is_none());
     }
 
     #[test]
@@ -113,7 +119,8 @@ mod test {
         );
         let ray_dir = Vector3::new(0.0, 1.0, 0.0);
         let ray_orig = Vector3::new(0.0, 1.0, 0.0);
+        let ray = Ray::new(ray_orig, ray_dir);
 
-        assert!(plane.ray_intersect(ray_orig, ray_dir).is_none());
+        assert!(plane.ray_intersect(&ray).is_none());
     }
 }
