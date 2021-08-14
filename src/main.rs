@@ -1,6 +1,6 @@
 use std::env;
-use std::fs::File;
-use std::io::prelude::*;
+
+use image::{ImageResult, RgbImage};
 
 use tinygraph_x::scene::{FrameBuffer, Scene};
 
@@ -8,33 +8,30 @@ fn main() {
     let scene = Scene::from_file(&get_scene_file());
     let framebuffer = scene.render();
 
-    export_to_ppm(&framebuffer, &get_out_file()).expect("failed to export to ppm");
+    export(&framebuffer, &get_out_file()).expect("failed to export to ppm");
 }
 
-fn export_to_ppm(framebuffer: &FrameBuffer, outfile: &str) -> std::io::Result<()> {
+fn export(framebuffer: &FrameBuffer, outfile: &str) -> ImageResult<()> {
+    let image_buffer = RgbImage::from_vec(
+        framebuffer.width as u32,
+        framebuffer.height as u32,
+        framebuffer
+            .buffer
+            .iter()
+            .rev()
+            .flat_map(|pixel| {
+                [
+                    ((255.0 * num::clamp(pixel.x, 0.0, 1.0)) as u8),
+                    ((255.0 * num::clamp(pixel.y, 0.0, 1.0)) as u8),
+                    ((255.0 * num::clamp(pixel.z, 0.0, 1.0)) as u8),
+                ]
+            })
+            .collect(),
+    )
+    .unwrap();
+
     println!("exporting to {}...", outfile);
-
-    let mut file = File::create(outfile)?;
-    let header = format!("P6\n{} {}\n255\n", framebuffer.width, framebuffer.height);
-
-    file.write_all(header.as_bytes())?;
-
-    let buffer = framebuffer
-        .buffer
-        .iter()
-        .rev()
-        .map(|pixel| {
-            vec![
-                ((255.0 * num::clamp(pixel.x, 0.0, 1.0)) as u8),
-                ((255.0 * num::clamp(pixel.y, 0.0, 1.0)) as u8),
-                ((255.0 * num::clamp(pixel.z, 0.0, 1.0)) as u8),
-            ]
-        })
-        .flatten()
-        .collect::<Vec<u8>>();
-
-    file.write_all(buffer.as_slice())?;
-
+    image_buffer.save(outfile)?;
     println!("exporting done!");
 
     Ok(())
@@ -54,6 +51,6 @@ fn get_out_file() -> String {
     if args.len() > 1 {
         args[1].clone()
     } else {
-        String::from("out.ppm")
+        String::from("out.png")
     }
 }
